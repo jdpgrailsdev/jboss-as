@@ -121,7 +121,7 @@ public class BoundaryDelimitedInputStream extends FilterInputStream {
     }
 
     /*
-     * Repeatably reaads from the source stream until the desired number of bytes are returned.
+     * Repeatably reads from the source stream until the desired number of bytes are returned.
      */
     private int fullRead(byte[] buffer, int offset, int length) throws IOException {
         int count = 0;
@@ -171,7 +171,6 @@ public class BoundaryDelimitedInputStream extends FilterInputStream {
         int position = consumeLeftOvers(buffer, 0, bufferLength);
         if (position < bufferLength)
             position += fullRead(buffer, position, bufferLength - position);
-
         // This should only occur when the source stream is already closed at start
         if (realEof && position == 0)
             return -1;
