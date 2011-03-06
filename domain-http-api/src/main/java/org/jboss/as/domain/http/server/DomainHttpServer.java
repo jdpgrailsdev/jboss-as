@@ -25,7 +25,6 @@ import java.util.concurrent.Executor;
 
 import org.jboss.as.controller.ModelController;
 import org.jboss.as.controller.client.OperationBuilder;
-import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.domain.http.server.attachment.BoundaryDelimitedInputStream;
 import org.jboss.as.domain.http.server.attachment.MultipartHeaders;
 import org.jboss.dmr.ModelNode;
