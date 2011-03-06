@@ -126,11 +126,7 @@ public class BoundaryDelimitedInputStream extends FilterInputStream {
     }
 
     /*
-<<<<<<< HEAD
      * Repeatably reads from the source stream until the desired number of bytes are returned.
-=======
-     * Repeatably reaads from the source stream until the desired number of bytes are returned.
->>>>>>> Modified HTTP API to support uploading of deployment via form POST.
      */
     private int fullRead(byte[] buffer, int offset, int length) throws IOException {
         int count = 0;
@@ -180,7 +176,6 @@ public class BoundaryDelimitedInputStream extends FilterInputStream {
         int position = consumeLeftOvers(buffer, 0, bufferLength);
         if (position < bufferLength)
             position += fullRead(buffer, position, bufferLength - position);
-
         // This should only occur when the source stream is already closed at start
         if (realEof && position == 0)
             return -1;
@@ -279,11 +274,7 @@ public class BoundaryDelimitedInputStream extends FilterInputStream {
     /**
      * Reads a single byte from the inner input stream. See the general contract of the read method of <code>InputStream</code>.
      *
-<<<<<<< HEAD
      * @return a single byte value from the stream in the range of 0-255 or -1 on eof of the inner stream.
-=======
-     * @return a signle byte value from the stream in the range of 0-255 or -1 on eof of the inner stream.
->>>>>>> Modified HTTP API to support uploading of deployment via form POST.
      */
     public int read() throws IOException {
         byte[] b = new byte[1];
