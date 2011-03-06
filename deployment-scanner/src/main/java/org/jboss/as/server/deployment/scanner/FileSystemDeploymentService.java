@@ -315,7 +315,7 @@ class FileSystemDeploymentService implements DeploymentScanner {
                     byte[] hash = new byte[0];
                     try {
                         final InputStream inputStream = new FileInputStream(child);
-                        hash = deploymentRepository.addDeploymentContent(fileName, fileName, inputStream);
+                        hash = deploymentRepository.addDeploymentContent(inputStream);
                     } catch (IOException e) {
                         log.error("Failed to add content to deployment repository for [" + fileName + "]", e);
                         continue;
@@ -326,7 +326,7 @@ class FileSystemDeploymentService implements DeploymentScanner {
                     byte[] hash = new byte[0];
                     try {
                         final InputStream inputStream = new FileInputStream(child);
-                        hash = deploymentRepository.addDeploymentContent(fileName, fileName, inputStream);
+                        hash = deploymentRepository.addDeploymentContent(inputStream);
                     } catch (IOException e) {
                         log.error("Failed to add content to deployment repository for [" + fileName + "]", e);
                         continue;

@@ -71,12 +71,12 @@ public class DeploymentRepositoryImpl implements DeploymentRepository {
     }
 
     @Override
-    public byte[] addDeploymentContent(String name, String runtimeName, InputStream stream) throws IOException {
+    public byte[] addDeploymentContent(InputStream stream) throws IOException {
 
-        log.debugf("Adding content with name %s", name);
+        log.debugf("Adding content");
 
         byte[] sha1Bytes = null;
-        File tmp = File.createTempFile(name, "tmp", repoRoot);
+        File tmp = File.createTempFile("deploy", "tmp", repoRoot);
         FileOutputStream fos = new FileOutputStream(tmp);
         synchronized (messageDigest) {
             messageDigest.reset();
@@ -103,10 +103,10 @@ public class DeploymentRepositoryImpl implements DeploymentRepository {
             if (!tmp.delete()) {
                 tmp.deleteOnExit();
             }
-            log.debugf("Content with name %s was already present in repository at location %s", name, realFile.getAbsolutePath());
+            log.debugf("Content was already present in repository at location %s", realFile.getAbsolutePath());
         } else {
             moveTempToPermanent(tmp, realFile);
-            log.infof("Content with name %s added at location %s", name, realFile.getAbsolutePath());
+            log.infof("Content added at location %s", realFile.getAbsolutePath());
         }
 
         return sha1Bytes;
