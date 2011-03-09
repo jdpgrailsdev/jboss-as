@@ -27,6 +27,7 @@ import org.jboss.as.controller.ModelController;
 import org.jboss.as.controller.client.OperationBuilder;
 import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.domain.http.server.attachment.BoundaryDelimitedInputStream;
+import org.jboss.as.domain.http.server.attachment.MultipartHeaders;
 import org.jboss.dmr.ModelNode;
 import org.jboss.logging.Logger;
 
@@ -46,9 +47,11 @@ public class DomainHttpServer implements HttpHandler {
     private static final String UPLOAD_OPERATION = "add-content";
     private static final String POST_REQUEST_METHOD = "POST";
     private static final String GET_REQUEST_METHOD = "GET";
+    private static final String MULTIPART_FORM_DATA_CONTENT_TYPE = "application/octet-stream";
     private static final String UPLOAD_TEMP_DIRECTORY = "uploads";
     private static final int UPLOAD_BUFFER_SIZE = 1024;
     private final byte[] POST_BOUNDARY = new byte[] { 0xd, 0xa, 0x2d, 0x2d };
+    private final byte[] POST_HEADER_BOUNDARY = new byte[] { 0xd, 0xa, 0xd, 0xa };
     private static final Logger log = Logger.getLogger("org.jboss.as.domain.http.api");
 
     /**
@@ -227,15 +230,30 @@ public class DomainHttpServer implements HttpHandler {
      * @throws IOException if an error occurs while attempting to extract the POST request data.
      */
     private File extractPostContent(final HttpExchange http) throws IOException {
-        final BoundaryDelimitedInputStream iStream = new BoundaryDelimitedInputStream(http.getRequestBody(), POST_BOUNDARY);
+        final BoundaryDelimitedInputStream iStream = new BoundaryDelimitedInputStream(http.getRequestBody(), POST_BOUNDARY, POST_HEADER_BOUNDARY);
         final File tempUploadFile = File.createTempFile("upload", ".tmp", serverTempDir);
         final BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(tempUploadFile));
 
         final byte[] buffer = new byte[UPLOAD_BUFFER_SIZE];
         int numRead = 0;
+        boolean isDeploymentPart = false;
 
         try {
-            while(numRead != -1) {
+            // Read from the stream until the deployment is found in the POST data.
+            while(!isDeploymentPart  && !iStream.isOuterStreamClosed()) {
+                final MultipartHeaders headers = iStream.readHeaders();
+                if(MULTIPART_FORM_DATA_CONTENT_TYPE.equals(headers.getContentType())) {
+                    isDeploymentPart = true;
+                } else {
+                    // These aren't the droids we are looking for...
+                    while(numRead != -1) {
+                        numRead = iStream.read(buffer);
+                    }
+                }
+            }
+
+            // Read the actual deployment and write it to file.
+            while(numRead != -1 && !iStream.isOuterStreamClosed()) {
                 numRead = iStream.read(buffer);
                 if(numRead > 0) {
                     bos.write(buffer, 0, numRead);
