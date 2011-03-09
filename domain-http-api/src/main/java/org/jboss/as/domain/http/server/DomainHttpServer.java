@@ -1,13 +1,9 @@
 package org.jboss.as.domain.http.server;
 
-<<<<<<< HEAD
-
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.FAILED;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OUTCOME;
 
-=======
 import java.io.BufferedOutputStream;
->>>>>>> Modified HTTP API to support uploading of deployment via form POST.
 import java.io.Closeable;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -27,12 +23,8 @@ import java.util.Map.Entry;
 import java.util.concurrent.Executor;
 
 import org.jboss.as.controller.ModelController;
-<<<<<<< HEAD
 import org.jboss.as.controller.client.ExecutionContextBuilder;
-=======
-import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.domain.http.server.attachment.BoundaryDelimitedInputStream;
->>>>>>> Modified HTTP API to support uploading of deployment via form POST.
 import org.jboss.dmr.ModelNode;
 import org.jboss.logging.Logger;
 
@@ -129,10 +121,7 @@ public class DomainHttpServer implements HttpHandler {
             dmr.get("address").setEmptyList();
             dmr.get("url").set(tempUploadFile.toURI().toURL().toString());
 
-            response = modelController.execute(dmr);
-        } catch (OperationFailedException e) {
-            response = e.getFailureDescription();
-            status = HTTP_INTERNAL_SERVER_ERROR_STATUS;
+            response = modelController.execute(ExecutionContextBuilder.Factory.create(dmr).build());
         } catch (Throwable t) {
             log.error("Unexpected error executing deployment upload request", t);
             http.sendResponseHeaders(HTTP_INTERNAL_SERVER_ERROR_STATUS, -1);
@@ -173,14 +162,7 @@ public class DomainHttpServer implements HttpHandler {
 
         try {
             dmr = isGet ? convertGetRequest(request) : convertPostRequest(http.getRequestBody(), encode);
-<<<<<<< HEAD
             response = modelController.execute(ExecutionContextBuilder.Factory.create(dmr).build());
-=======
-            response = modelController.execute(dmr);
-        } catch (OperationFailedException e) {
-            response = e.getFailureDescription();
-            status = HTTP_INTERNAL_SERVER_ERROR_STATUS;
->>>>>>> Modified HTTP API to support uploading of deployment via form POST.
         } catch (Throwable t) {
             log.error("Unexpected error executing model request", t);
             http.sendResponseHeaders(HTTP_INTERNAL_SERVER_ERROR_STATUS, -1);
