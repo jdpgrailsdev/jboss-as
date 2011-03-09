@@ -389,7 +389,8 @@ public class ParseAndMarshalModelsTestCase {
                         }
 
                         @Override
-                        public byte[] addDeploymentContent(String name, String runtimeName, InputStream stream) throws IOException {
+                        public byte[] addDeploymentContent(InputStream stream) throws IOException {
+                            // TODO Auto-generated method stub
                             return null;
                         }
                     },
