@@ -66,7 +66,7 @@ public class BoundaryDelimitedInputStream extends FilterInputStream {
      *
      * @param in the source input stream
      * @param boundary the byte boundary separating sections of this stream
-     * @param headerBound the byte boundary separating the header from the body in a section.
+     * @param headerBoundary the byte boundary separating the header from the body in a section.
      */
     public BoundaryDelimitedInputStream(InputStream in, byte[] boundary, byte[] headerBoundary) {
         super(in);
