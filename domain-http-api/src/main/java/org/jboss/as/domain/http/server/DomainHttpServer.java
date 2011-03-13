@@ -4,6 +4,7 @@ import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.FAI
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OUTCOME;
 
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -25,7 +26,7 @@ import java.util.concurrent.Executor;
 import org.jboss.as.controller.ModelController;
 import org.jboss.as.controller.client.OperationBuilder;
 import org.jboss.as.domain.http.server.attachment.BoundaryDelimitedInputStream;
-import org.jboss.as.domain.http.server.attachment.MultipartHeaders;
+import org.jboss.as.domain.http.server.attachment.MultipartHeader;
 import org.jboss.dmr.ModelNode;
 import org.jboss.logging.Logger;
 
@@ -33,6 +34,7 @@ import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+
 /**
  * An embedded web server that provides a JSON over HTTP API to the domain management model.
  *
@@ -112,19 +114,19 @@ public class DomainHttpServer implements HttpHandler {
         int status = 200;
 
         try {
-            tempUploadFile = extractPostContent(http);
+             tempUploadFile = extractPostContent(http);
 
-            /*
+             /*
              * TODO Change to use upload-deployment-stream operation. This would involve wrapping the input stream containing
              * the request body in a multipart decoder stream that would read only the deployment contained in the
              * multipart/form data.
              */
-            final ModelNode dmr = new ModelNode();
-            dmr.get("operation").set("upload-deployment-url");
-            dmr.get("address").setEmptyList();
-            dmr.get("url").set(tempUploadFile.toURI().toURL().toString());
+             final ModelNode dmr = new ModelNode();
+             dmr.get("operation").set("upload-deployment-url");
+             dmr.get("address").setEmptyList();
+             dmr.get("url").set(tempUploadFile.toURI().toURL().toString());
 
-            response = modelController.execute(OperationBuilder.Factory.create(dmr).build());
+             response = modelController.execute(OperationBuilder.Factory.create(dmr).build());
         } catch (Throwable t) {
             log.error("Unexpected error executing deployment upload request", t);
             http.sendResponseHeaders(HTTP_INTERNAL_SERVER_ERROR_STATUS, -1);
@@ -228,33 +230,35 @@ public class DomainHttpServer implements HttpHandler {
      * @throws IOException if an error occurs while attempting to extract the POST request data.
      */
     private File extractPostContent(final HttpExchange http) throws IOException {
-        final BoundaryDelimitedInputStream iStream = new BoundaryDelimitedInputStream(http.getRequestBody(), POST_BOUNDARY, POST_HEADER_BOUNDARY);
+        final BoundaryDelimitedInputStream iStream = new BoundaryDelimitedInputStream(http.getRequestBody(), POST_BOUNDARY);
         final File tempUploadFile = File.createTempFile("upload", ".tmp", serverTempDir);
         final BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(tempUploadFile));
 
         final byte[] buffer = new byte[UPLOAD_BUFFER_SIZE];
-        int numRead = 0;
         boolean isDeploymentPart = false;
 
         try {
             // Read from the stream until the deployment is found in the POST data.
-            while(!isDeploymentPart  && !iStream.isOuterStreamClosed()) {
-                final MultipartHeaders headers = iStream.readHeaders();
-                if(MULTIPART_FORM_DATA_CONTENT_TYPE.equals(headers.getContentType())) {
-                    isDeploymentPart = true;
-                } else {
-                    // These aren't the droids we are looking for...
-                    while(numRead != -1) {
-                        numRead = iStream.read(buffer);
-                    }
-                }
-            }
+            while (!isDeploymentPart && !iStream.isOuterStreamClosed()) {
+                int numRead = 0;
 
-            // Read the actual deployment and write it to file.
-            while(numRead != -1 && !iStream.isOuterStreamClosed()) {
-                numRead = iStream.read(buffer);
-                if(numRead > 0) {
-                    bos.write(buffer, 0, numRead);
+                // Read the POST section header from the inner stream.
+                final MultipartHeader header = readHeader(iStream);
+
+                if(header != null) {
+                    // Determine if the current section is a deployment file upload.
+                    isDeploymentPart = MULTIPART_FORM_DATA_CONTENT_TYPE.equals(header.getContentType());
+
+                    /*
+                     *  Read the body following the header.  If it is the deployment,
+                     *  write it to the temporary file.  Otherwise, discard the data.
+                     */
+                    while (numRead != -1) {
+                        numRead = iStream.read(buffer);
+                        if (numRead > 0 && isDeploymentPart) {
+                            bos.write(buffer, 0, numRead);
+                        }
+                    }
                 }
             }
         } finally {
@@ -268,6 +272,47 @@ public class DomainHttpServer implements HttpHandler {
         }
 
         return tempUploadFile;
+    }
+
+    /**
+     * Reads and returns the multipart headers from the source stream.
+     *
+     * @param boundaryStream A <code>BoundaryDelimitedInputStream</code> that wraps a POST request.
+     * @return A <code>MultipartHeader</code> object wrapping the extracted header or <code>null</code> if the stream is closed.
+     * @throws IOException if an error occurs while attempting to read the headers from the current inside stream.
+     */
+    private MultipartHeader readHeader(final BoundaryDelimitedInputStream boundaryStream) throws IOException {
+        MultipartHeader currentHeader = null;
+        if (!boundaryStream.isOuterStreamClosed()) {
+            int separatorCounter = 0;
+            byte[] separatorBuffer = new byte[POST_HEADER_BOUNDARY.length];
+            final ByteArrayOutputStream bos = new ByteArrayOutputStream();
+
+            try {
+                // Read the header until the post header separator sequence is found.
+                while (separatorCounter < POST_HEADER_BOUNDARY.length) {
+                    int current = boundaryStream.read();
+                    if (current == POST_HEADER_BOUNDARY[separatorCounter]) {
+                        separatorBuffer[separatorCounter] = (byte) current;
+                        separatorCounter++;
+                    } else {
+                        if (separatorCounter > 0) {
+                            bos.write(separatorBuffer, 0, separatorCounter);
+                        }
+                        bos.write(current);
+                        separatorCounter = 0;
+                    }
+                }
+            } finally {
+                bos.flush();
+                bos.close();
+            }
+
+            // Create the header from the read data
+            currentHeader = new MultipartHeader(bos.toByteArray());
+        }
+
+        return currentHeader;
     }
 
     private void safeClose(Closeable close) {

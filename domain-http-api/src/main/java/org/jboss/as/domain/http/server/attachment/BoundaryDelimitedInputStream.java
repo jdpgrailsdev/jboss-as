@@ -21,7 +21,6 @@
  */
 package org.jboss.as.domain.http.server.attachment;
 
-import java.io.ByteArrayOutputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -42,11 +41,7 @@ public class BoundaryDelimitedInputStream extends FilterInputStream {
 
     private byte[] boundary;
 
-    private byte[] headerBoundary;
-
     private SimpleBoyerMoore boyerMoore;
-
-    private MultipartHeaders currentHeader;
 
     private byte[] leftOvers;
 
@@ -66,13 +61,11 @@ public class BoundaryDelimitedInputStream extends FilterInputStream {
      *
      * @param in the source input stream
      * @param boundary the byte boundary separating sections of this stream
-     * @param headerBoundary the byte boundary separating the header from the body in a section.
      */
-    public BoundaryDelimitedInputStream(InputStream in, byte[] boundary, byte[] headerBoundary) {
+    public BoundaryDelimitedInputStream(InputStream in, byte[] boundary) {
         super(in);
         source = in;
         this.boundary = (byte[]) boundary.clone();
-        this.headerBoundary = (byte[]) headerBoundary.clone();
         boyerMoore = new SimpleBoyerMoore(this.boundary);
     }
 
@@ -204,47 +197,6 @@ public class BoundaryDelimitedInputStream extends FilterInputStream {
             System.arraycopy(buffer, 0, b, off, returnLength);
 
         return returnLength;
-    }
-
-    /**
-     * Reads and returns the multipart headers from the source stream. Note that if this method is called after starting to read
-     * from the current inner part, the header previously extracted by calling this method will be returned.
-     *
-     * @return A <code>MultipartHeaders</code> object wrapping the extracted header.
-     * @throws IOException if an error occurs while attempting to read the headers from the current inside stream.
-     */
-    public MultipartHeaders readHeaders() throws IOException {
-        if (!simulateEof && leftOverPosition == 0) {
-            int separatorCounter = 0;
-            byte[] separatorBuffer = new byte[headerBoundary.length];
-            final ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            int byteCounter = 0;
-            try {
-                // Read the header until the post header separator sequence is found.
-                while (separatorCounter < headerBoundary.length) {
-                    int current = source.read();
-                    if (current == headerBoundary[separatorCounter]) {
-                        separatorBuffer[separatorCounter] = (byte) current;
-                        separatorCounter++;
-                    } else {
-                        if (separatorCounter > 0) {
-                            bos.write(separatorBuffer, 0, separatorCounter);
-                            byteCounter += separatorCounter;
-                        }
-                        bos.write(current);
-                        separatorCounter = 0;
-                        byteCounter++;
-                    }
-                }
-            } finally {
-                bos.flush();
-                bos.close();
-            }
-
-            currentHeader = new MultipartHeaders(bos.toByteArray());
-        }
-
-        return currentHeader;
     }
 
     /**
