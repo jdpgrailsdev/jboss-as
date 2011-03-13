@@ -8,7 +8,7 @@ import java.util.regex.Pattern;
  *
  * @author Jonathan Pearlin
  */
-public class MultipartHeaders {
+public class MultipartHeader {
 
     /**
      * Separator token used to split the header into lines.
@@ -40,7 +40,7 @@ public class MultipartHeaders {
      *
      * @param header
      */
-    MultipartHeaders(final byte[] header) {
+    public MultipartHeader(final byte[] header) {
         final String[] headerLines = new String(header).split(HEADER_SPLIT_TOKEN);
         contentDisposition = find(headerLines, CONTENT_DISPOSTION, 1);
         contentType = find(headerLines, CONTENT_TYPE, 1);
