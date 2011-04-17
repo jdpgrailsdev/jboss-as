@@ -21,23 +21,12 @@
  */
 package org.jboss.as.test.surefire.servermodule;
 
-import org.jboss.as.demos.war.archive.SimpleServlet;
-import org.jboss.as.server.Bootstrap;
-import org.jboss.as.server.EmbeddedStandAloneServerFactory;
-import org.jboss.as.server.Main;
-import org.jboss.as.server.ServerEnvironment;
-import org.jboss.as.test.modular.utils.ShrinkWrapUtils;
-import org.jboss.as.test.surefire.servermodule.archive.sar.Simple;
-import org.jboss.dmr.ModelNode;
-import org.jboss.modules.Module;
-import org.jboss.msc.service.ServiceActivator;
-import org.jboss.msc.service.ServiceContainer;
-import org.jboss.shrinkwrap.api.exporter.ZipExporter;
-import org.jboss.shrinkwrap.api.spec.JavaArchive;
-import org.jboss.shrinkwrap.api.spec.WebArchive;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import static junit.framework.Assert.assertEquals;
+import static junit.framework.Assert.assertNotNull;
+import static junit.framework.Assert.assertTrue;
+import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OUTCOME;
+import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.RESULT;
+import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.SUCCESS;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -51,13 +40,21 @@ import java.util.Collections;
 import java.util.NoSuchElementException;
 import java.util.Properties;
 
-import static junit.framework.Assert.assertEquals;
-import static junit.framework.Assert.assertNotNull;
-import static junit.framework.Assert.assertTrue;
-import static junit.framework.Assert.fail;
-import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OUTCOME;
-import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.RESULT;
-import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.SUCCESS;
+import org.jboss.as.server.Bootstrap;
+import org.jboss.as.server.EmbeddedStandAloneServerFactory;
+import org.jboss.as.server.Main;
+import org.jboss.as.server.ServerEnvironment;
+import org.jboss.as.test.modular.utils.ShrinkWrapUtils;
+import org.jboss.as.test.surefire.servermodule.archive.sar.Simple;
+import org.jboss.dmr.ModelNode;
+import org.jboss.modules.Module;
+import org.jboss.msc.service.ServiceActivator;
+import org.jboss.msc.service.ServiceContainer;
+import org.jboss.shrinkwrap.api.exporter.ZipExporter;
+import org.jboss.shrinkwrap.api.spec.JavaArchive;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
 
 /**
  * Test the HTTP API upload functionality to ensure that a deployment is successfully
@@ -72,8 +69,6 @@ public class HttpDeploymentUploadUnitTestCase {
     private static final String CRLF = "\r\n";
 
     private static final String POST_REQUEST_METHOD = "POST";
-
-    private static final String TEST_WAR = "demos/war-example.war";
 
     private static final String BASIC_URL = "http://localhost:9990/domain-api/";
 
@@ -116,7 +111,6 @@ public class HttpDeploymentUploadUnitTestCase {
             connection.setRequestMethod(POST_REQUEST_METHOD);
 
             // Grab the test WAR file and get a stream to its contents to be included in the POST.
-//            final WebArchive archive = ShrinkWrapUtils.createWebArchive(TEST_WAR, SimpleServlet.class.getPackage());
             final JavaArchive archive = ShrinkWrapUtils.createJavaArchive("servermodule/test-deployment.sar", Simple.class.getPackage());
             os = new BufferedOutputStream(connection.getOutputStream());
             is = new BufferedInputStream(archive.as(ZipExporter.class).exportZip());
@@ -125,7 +119,6 @@ public class HttpDeploymentUploadUnitTestCase {
             writeUploadRequest(is, os);
             ModelNode node = readResult(connection.getInputStream());
             assertNotNull(node);
-            System.out.println(node);
             assertEquals(SUCCESS, node.require(OUTCOME).asString());
 
             byte[] hash = node.require(RESULT).asBytes();
@@ -140,13 +133,8 @@ public class HttpDeploymentUploadUnitTestCase {
 
             node = readResult(connection.getInputStream());
             assertNotNull(node);
-            System.out.println(node);
             assertEquals(SUCCESS, node.require(OUTCOME).asString());
-
-//        } catch (final Exception e) {
-//            fail("Exception not expected: " + e.getMessage());
-        }
-        finally {
+        } finally {
             closeQuietly(is);
             closeQuietly(os);
         }

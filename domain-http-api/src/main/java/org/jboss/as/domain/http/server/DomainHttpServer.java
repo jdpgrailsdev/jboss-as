@@ -19,7 +19,6 @@ import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.Executor;
@@ -40,6 +39,7 @@ import com.sun.net.httpserver.HttpServer;
  * An embedded web server that provides a JSON over HTTP API to the domain management model.
  *
  * @author Jason T. Greene
+ * @author Jonathan Pearlin
  */
 public class DomainHttpServer implements HttpHandler {
 
@@ -119,18 +119,23 @@ public class DomainHttpServer implements HttpHandler {
 
         try {
              tempUploadFile = extractPostContent(http);
+             if(tempUploadFile.length() > 0) {
+                 /*
+                  * TODO Change to use upload-deployment-stream operation. This would involve wrapping the input stream containing
+                  * the request body in a multipart decoder stream that would read only the deployment contained in the
+                  * multipart/form data.
+                  */
+                 final ModelNode dmr = new ModelNode();
+                 dmr.get("operation").set("upload-deployment-url");
+                 dmr.get("address").setEmptyList();
+                 dmr.get("url").set(tempUploadFile.toURI().toURL().toString());
 
-             /*
-             * TODO Change to use upload-deployment-stream operation. This would involve wrapping the input stream containing
-             * the request body in a multipart decoder stream that would read only the deployment contained in the
-             * multipart/form data.
-             */
-             final ModelNode dmr = new ModelNode();
-             dmr.get("operation").set("upload-deployment-url");
-             dmr.get("address").setEmptyList();
-             dmr.get("url").set(tempUploadFile.toURI().toURL().toString());
-
-             response = modelController.execute(OperationBuilder.Factory.create(dmr).build());
+                 response = modelController.execute(OperationBuilder.Factory.create(dmr).build());
+             } else {
+                 log.error("Failed to upload deployment: no deployment found in HTTP request.");
+                 http.sendResponseHeaders(HTTP_INTERNAL_SERVER_ERROR_STATUS, -1);
+                 return;
+             }
         } catch (Throwable t) {
             log.error("Unexpected error executing deployment upload request", t);
             http.sendResponseHeaders(HTTP_INTERNAL_SERVER_ERROR_STATUS, -1);
@@ -246,7 +251,6 @@ public class DomainHttpServer implements HttpHandler {
         final byte[] buffer = new byte[UPLOAD_BUFFER_SIZE];
         boolean isDeploymentPart = false;
 
-
         try {
             // Read from the stream until the deployment is found in the POST data.
             while (!isDeploymentPart && !iStream.isOuterStreamClosed()) {
@@ -295,22 +299,25 @@ public class DomainHttpServer implements HttpHandler {
         MultipartHeader currentHeader = null;
         if (!boundaryStream.isOuterStreamClosed()) {
             int separatorCounter = 0;
+            int currentByte = 0;
             byte[] separatorBuffer = new byte[POST_HEADER_BOUNDARY.length];
             final ByteArrayOutputStream bos = new ByteArrayOutputStream();
 
             try {
                 // Read the header until the post header separator sequence is found.
-                while (separatorCounter < POST_HEADER_BOUNDARY.length) {
-                    int current = boundaryStream.read();
-                    if (current == POST_HEADER_BOUNDARY[separatorCounter]) {
-                        separatorBuffer[separatorCounter] = (byte) current;
-                        separatorCounter++;
-                    } else {
-                        if (separatorCounter > 0) {
-                            bos.write(separatorBuffer, 0, separatorCounter);
+                while (separatorCounter < POST_HEADER_BOUNDARY.length && currentByte != -1) {
+                    currentByte = boundaryStream.read();
+                    if(currentByte > -1) {
+                        if (currentByte == POST_HEADER_BOUNDARY[separatorCounter]) {
+                            separatorBuffer[separatorCounter] = (byte) currentByte;
+                            separatorCounter++;
+                        } else {
+                            if (separatorCounter > 0) {
+                                bos.write(separatorBuffer, 0, separatorCounter);
+                            }
+                            bos.write(currentByte);
+                            separatorCounter = 0;
                         }
-                        bos.write(current);
-                        separatorCounter = 0;
                     }
                 }
             } finally {
